@@ -205,6 +205,43 @@
         line-height: 1;
       }
 
+      .back-button {
+        position: fixed;
+        top: clamp(18px, 3.2vw, 44px);
+        left: clamp(18px, 4vw, 48px);
+        z-index: 20;
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 1px solid rgba(241, 223, 173, 0.68);
+        border-radius: 50%;
+        color: var(--champagne-light);
+        cursor: pointer;
+        background: rgba(20, 6, 8, 0.26);
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.22);
+        backdrop-filter: blur(12px);
+        transition:
+          background 180ms ease,
+          border-color 180ms ease,
+          transform 180ms ease;
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .back-button:hover {
+        border-color: var(--champagne-light);
+        background: rgba(128, 0, 32, 0.34);
+        transform: translateY(-1px);
+      }
+
+      .back-button span {
+        font-size: 1.6rem;
+        line-height: 1;
+        margin-bottom: 2px;
+        margin-right: 2px;
+      }
+
       .action-indicator {
         position: absolute;
         right: clamp(18px, 5vw, 72px);
@@ -543,7 +580,6 @@
           />
         </button>
         <div class="hero-vignette" aria-hidden="true"></div>
-        <div class="hero-monogram" aria-hidden="true">DT</div>
         <div class="action-indicator" data-action-indicator aria-live="polite">
           Click the Letter to Open
         </div>
@@ -614,6 +650,14 @@
       >
         <span aria-hidden="true">♪</span>
       </button>
+      <button
+        class="back-button"
+        type="button"
+        data-back-button
+        aria-label="Go back"
+      >
+        <span aria-hidden="true">‹</span>
+      </button>
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -624,6 +668,7 @@
         const sceneStage = document.querySelector("[data-scene-stage]");
         const soundToggle = document.querySelector("[data-sound-toggle]");
         const soundIcon = soundToggle.querySelector("span");
+        const backButton = document.querySelector("[data-back-button]");
         const indicator = document.querySelector("[data-action-indicator]");
         const detailsSection = document.querySelector(".details-section");
         const frame1 = document.querySelector(".frame-1");
@@ -650,6 +695,8 @@
               frame1.style.opacity = "0";
               frame3.style.opacity = "1";
               indicator.textContent = "Click tiếp để xem chi tiết";
+              backButton.style.opacity = "1";
+              backButton.style.visibility = "visible";
               return;
             }
 
@@ -658,16 +705,35 @@
             detailsSection.style.pointerEvents = "auto";
             indicator.style.opacity = "0";
           });
+
+          backButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (detailsVisible) {
+              detailsVisible = false;
+              detailsSection.style.opacity = "0";
+              detailsSection.style.pointerEvents = "none";
+              indicator.style.opacity = "1";
+              indicator.textContent = "Click tiếp để xem chi tiết";
+            } else if (isOpen) {
+              isOpen = false;
+              frame3.style.opacity = "0";
+              frame1.style.opacity = "1";
+              indicator.textContent = "Click the Letter to Open";
+              backButton.style.opacity = "0";
+              backButton.style.visibility = "hidden";
+            }
+          });
           return;
         }
 
-        gsap.set([frame1, frame3, indicator, sceneStage, detailsSection], {
+        gsap.set([frame1, frame3, indicator, sceneStage, detailsSection, backButton], {
           force3D: true
         });
         gsap.set(frame1, { autoAlpha: 1 });
         gsap.set(frame3, { autoAlpha: 0 });
         gsap.set(indicator, { autoAlpha: 1, y: 0 });
         gsap.set(detailsSection, { autoAlpha: 0, y: 24 });
+        gsap.set(backButton, { autoAlpha: 0 });
 
         const getAudioContext = () => {
           if (!audioContext) {
@@ -835,6 +901,45 @@
             .to(detailsSection, { autoAlpha: 1, y: 0, duration: 0.95 }, 0.18);
         };
 
+        const hideDetails = () => {
+          detailsVisible = false;
+          sceneStage.disabled = false;
+          detailsSection.style.pointerEvents = "none";
+          indicator.textContent = "Click tiếp để xem chi tiết";
+
+          gsap
+            .timeline({ defaults: { ease: "power3.inOut" } })
+            .to(detailsSection, { autoAlpha: 0, y: 24, duration: 0.95 }, 0)
+            .to(".hero-monogram", { autoAlpha: 1, y: 0, duration: 0.55 }, 0.4)
+            .to(sceneStage, { autoAlpha: 1, scale: 1, filter: "blur(0px) saturate(1)", duration: 0.95 }, 0)
+            .to(indicator, { autoAlpha: 1, y: 0, duration: 0.35 }, 0.6);
+        };
+
+        const closeInvitation = () => {
+          isOpen = false;
+          sceneStage.disabled = true;
+          sceneStage.setAttribute("aria-label", "Open the graduation invitation");
+          indicator.textContent = "Click the Letter to Open";
+          
+          gsap.to(backButton, { autoAlpha: 0, duration: 0.45 });
+
+          gsap
+            .timeline({
+              defaults: { ease: "power2.inOut" },
+              onComplete: () => {
+                sceneStage.disabled = false;
+              }
+            })
+            .to(frame3, { autoAlpha: 0, duration: 1.45 }, 0)
+            .to(frame1, { autoAlpha: 1, duration: 1.45 }, 0)
+            .fromTo(
+              indicator,
+              { autoAlpha: 0, y: 14 },
+              { autoAlpha: 1, y: 0, duration: 0.45, ease: "power2.out" },
+              1.22
+            );
+        };
+
         const openInvitation = () => {
           startAmbientSound();
 
@@ -848,6 +953,8 @@
           sceneStage.setAttribute("aria-label", "Graduation invitation opened");
           indicator.textContent = "Opening Invitation";
           playOpenSound();
+          
+          gsap.to(backButton, { autoAlpha: 1, duration: 0.45, delay: 1.22 });
 
           gsap
             .timeline({
@@ -883,6 +990,15 @@
             playAmbientChime();
           } else {
             stopAmbientSound();
+          }
+        });
+
+        backButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (detailsVisible) {
+            hideDetails();
+          } else if (isOpen) {
+            closeInvitation();
           }
         });
 
